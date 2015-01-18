@@ -30,7 +30,15 @@ app.get('/wind', function(req, res) {
 	MongoClient.connect(process.env.MONGOLAB_URI, function(err, db){
 		if (err) res.jsonp(500, { error: "db error:" + err });
 		findWindData(db, "wind_u", 0, function(data) {
-			res.jsonp(extractBounds(data, bounds));
+			var wind_u = extractBounds(data, bounds);
+			findWindData(db, "wind_v", 0, function(data) {
+				var wind_v = extractBounds(data, bounds);
+				res.jsonp({
+					header: wind_u.header,
+					wind_u: wind_u.data,
+					wind_v: wind_v.data
+				});
+			});
 		});
 	});
 });
@@ -62,7 +70,6 @@ function extractBounds(data, bounds){
 
 	var xy1 = latlng2xy(bounds[0], bounds[1]);
 	var xy2 = latlng2xy(bounds[2], bounds[3]);
-	console.log([xy1, xy2]);
 
 	// 範囲抽出
 	var e = extractData(wind_data, xy1, xy2, nx);
