@@ -13,8 +13,8 @@ app.use(function(err, req, res, next) {
 
 
 
-app.get('/', function(request, response) {
-  response.send('Hello World!');
+app.get('/', function(req, res) {
+	res.render("index");
 });
 
 

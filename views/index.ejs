@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset=utf-8 />
+		<title>WindMap / Surf / MSM</title>
+		<meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+		<link href='https://api.tiles.mapbox.com/mapbox.js/v1.6.4/mapbox.css' rel='stylesheet' />
+		<style>
+			body { margin:0; padding:0; }
+			#map { position:absolute; top:0; bottom:0; width:100%; z-index:1; }
+			#overlay { position:absolute; top:0; bottom:0; width:100%; z-index:10; }
+			#cv { display:block; }
+		</style>
+	</head>
+	<body>
+		<div id='map'></div>
+		<div id='overlay'>
+			<canvas id="cv"></canvas>
+		</div>
+
+		<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+		<script src='https://api.tiles.mapbox.com/mapbox.js/v1.6.4/mapbox.js'></script>
+		<script src="/js/underscore.js"></script>
+		<script src="/js/stream.js"></script>
+		<script>
+			$(function() {
+				// map
+				var map_id = 'tattii.j1a9fl0a';
+				var mapboxTiles = L.tileLayer(
+					'https://{s}.tiles.mapbox.com/v3/' + map_id + '/{z}/{x}/{y}.png',
+					{ attribution: '<a href="http://www.mapbox.com/about/maps/" target="_blank">Mapbox</a>' }
+				);
+
+				var biwakoBounds = L.latLngBounds(
+					[34.9, 135.75],
+					[35.55, 136.5]
+					);
+
+
+				var map = L.map('map', {
+						center: [35, 136],
+						zoom: 9,
+						zoomControl: false,
+						attributionControl: false
+					})
+					.addLayer(mapboxTiles);
+
+				// canvas
+				var cv = document.getElementById('cv');
+				var ctx = cv.getContext('2d');
+				cv.width = $(window).width();
+				cv.height = $(window).height();
+				ctx.globalAlpha = 0.9;
+
+
+
+				var b = map.getBounds();
+				var str_bounds = b.getNorth() +","+ b.getWest() +","+ b.getSouth() +","+ b.getEast();
+				$.ajax({
+					url: "http://windmap-surf.herokuapp.com/wind",
+					type: "GET",
+					dataType: "jsonp",
+					data: { bounds: str_bounds },
+					success: function(data, status) {
+						console.log(map.getBounds());
+						console.log(data);
+						draw(data);
+					}
+				});
+
+				
+
+				function draw(wind_data){
+					// projection
+					var mapBounds = map.getBounds();
+					var mapSize = map.getSize();
+					var proj = new SimpleProjection(
+						{ x:0,   y:0,               lat:mapBounds.getNorth(), lng:mapBounds.getWest() },
+						{ x:mapSize.x, y:mapSize.y, lat:mapBounds.getSouth(), lng:mapBounds.getEast() }
+					);
+
+					// stream  //TODO GribWind変更
+					var h = wind_data.header;
+					var wind_field = new GribWind({
+						u_data: wind_data.wind_u,
+						v_data: wind_data.wind_v,
+						nx: h.nx,
+						ny: h.ny,
+						p0: [h.la1, h.lo1],
+						p1: [h.la2, h.lo2],
+						dx: h.dx,
+						dy: h.dy
+					});
+
+					var stream = new Stream({ x:[0,mapSize.x], y:[0,mapSize.y] });
+					stream.setField(wind_field, proj);
+					stream.animate(ctx);
+				}
+
+
+
+			});
+		</script>
+	</body>
+</html>
