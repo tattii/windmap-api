@@ -92,7 +92,17 @@ function extractBounds(data, bounds){
 	function latlng2xy(lat, lng) {
 		var x = Math.ceil( (lng - lo1) / dx );
 		var y = Math.ceil( (la1 - lat) / dy );
-		return {x:x, y:y};
+		return {x:range(x,1,nx), y:range(y,1,ny)};
+	}
+
+	function range(t, min, max) {
+		if ( t < min ){
+			return min;
+		}else if ( t > max ){
+			return max;
+		}else{
+			return t;
+		}
 	}
 }
 
