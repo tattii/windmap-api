@@ -184,7 +184,10 @@ function Stream(bound) {
 	}
 
 	return {
-		setField: function(f,p){ Grid.set(f,p); },
+		setField: function(f,p){
+			Grid.release();
+			Grid.set(f,p); 
+		},
 		animate: animate
 	};
 }
@@ -194,7 +197,7 @@ function Stream(bound) {
  *	GribWind - wind data.grib2
  *
  */
-function GribWind(data, projection) {
+function GribWind(data) {
 	var u_data = data.u_data;
 	var v_data = data.v_data;
 	var nlng = data.nx;  // number of grids
