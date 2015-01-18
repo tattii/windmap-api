@@ -70,6 +70,7 @@ function extractBounds(data, bounds){
 
 	var xy1 = latlng2xy(bounds[0], bounds[1]);
 	var xy2 = latlng2xy(bounds[2], bounds[3]);
+	xy1.x--; xy1.y++;
 
 	// 範囲抽出
 	var e = extractData(wind_data, xy1, xy2, nx);
