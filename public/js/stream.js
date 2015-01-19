@@ -18,6 +18,7 @@ function Stream(bound) {
 	bound.width  = bound.x[1] - bound.x[0];
 	bound.height = bound.y[1] - bound.y[0];
 
+	var timer;
 	
 	/**
 	 *	Grid - canvasと同じ大きさのベクトル集合
@@ -175,7 +176,7 @@ function Stream(bound) {
 			try {
 				evolve();
 				draw();
-				setTimeout(frame, FRAME_RATE);
+				timer = setTimeout(frame, FRAME_RATE);
 
 			} catch(e) {
 				console.log(e);
@@ -185,8 +186,9 @@ function Stream(bound) {
 
 	return {
 		setField: function(f,p){
+			if (timer) clearTimeout(timer);
 			Grid.release();
-			Grid.set(f,p); 
+			Grid.set(f,p);
 		},
 		animate: animate
 	};
@@ -198,14 +200,16 @@ function Stream(bound) {
  *
  */
 function GribWind(data) {
-	var u_data = data.u_data;
-	var v_data = data.v_data;
-	var nlng = data.nx;  // number of grids
-	var nlat = data.ny;
-	var p0 = data.p0;      // grid start point [lat, lng]
-	var p1 = data.p1;      // grid end point
-	var dlng = data.dx;
-	var dlat = data.dy;
+	var u_data = data.wind_u;
+	var v_data = data.wind_v;
+	var h = data.header;
+
+	var nlng = h.nx;  // number of grids
+	var nlat = h.ny;
+	var p0 = [h.la1, h.lo1];      // grid start point [lat, lng]
+	var p1 = [h.la2, h.lo2];      // grid end point
+	var dlng = h.dx;
+	var dlat = h.dy;
 
 	function v(x, y){
 		var n = nlng * y + x;
