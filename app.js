@@ -72,6 +72,8 @@ function extractBounds(data, bounds){
 	var xy2 = latlng2xy(bounds[2], bounds[3]);
 	xy1.x--; xy1.y--;
 
+	console.log(xy1, xy2);
+
 	// 範囲抽出
 	var e = extractData(wind_data, xy1, xy2, nx);
 
@@ -80,7 +82,7 @@ function extractBounds(data, bounds){
 			la1: la1 - dy * xy1.y,
 			lo1: lo1 + dx * xy1.x,
 			la2: la1 - dy * xy2.y,
-			lo2: lo2 + dx * xy2.x,
+			lo2: lo1 + dx * xy2.x,
 			dx: dx,
 			dy: dy,
 			nx: xy2.x - xy1.x + 1,
