@@ -29,7 +29,8 @@ function Stream(bound) {
 	var Grid = function(){
 		var rows = [];
 
-		function set(field, projection) {
+		function set(field, projection, scale) {
+			if ( !scale ) scale = 1;
 			rows = [];
 			for (var y = bound.y[0]; y < bound.y[1]; y+=2){
 				interpolateRow(y);
@@ -40,7 +41,9 @@ function Stream(bound) {
 				for (var x = bound.x[0]; x < bound.x[1]; x+=2){
 					var latlng = projection.unproject(x, y);
 					var v = field.getVector(latlng);
-					var wind = [ v[0], -1 * v[1], Math.sqrt(v[0]*v[0] + v[1]*v[1]) ];
+					v[0] *= scale;
+					v[1] *= scale * -1;
+					var wind = [ v[0], v[1], Math.sqrt(v[0]*v[0] + v[1]*v[1]) ];
 					row[x] = row[x+1] = wind;
 				}
 				rows[y] = rows[y+1] = row;
@@ -103,11 +106,12 @@ function Stream(bound) {
 	 *   animate stream
 	 *		require canvas context
 	 */
-	function animate(ctx){
+	function animate(ctx, density){
 		var color = colorScale(10, 17);
 		var fadeFillStyle = "rgba(0, 0, 0, 0.97)";
-		var buckets = color.map(function(){ return []; });i
-		var particleCount = Math.round(bound.width * PARTICLE_MULTIPLIER);
+		var buckets = color.map(function(){ return []; });
+		if ( !density ) density = 1;
+		var particleCount = Math.round(bound.width * PARTICLE_MULTIPLIER * density);
 		console.log("particles:" + particleCount)
 		var particles = [];
 		for (var i = 0; i < particleCount; i++) {
@@ -185,10 +189,10 @@ function Stream(bound) {
 	}
 
 	return {
-		setField: function(f,p){
+		setField: function(f,p,s){
 			if (timer) clearTimeout(timer);
 			Grid.release();
-			Grid.set(f,p);
+			Grid.set(f,p,s);
 		},
 		animate: animate
 	};

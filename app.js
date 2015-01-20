@@ -32,8 +32,6 @@ app.get('/wind', function(req, res) {
 		return parseFloat(d);
 	});
 
-	console.log(forecastTime);
-
 	MongoClient.connect(process.env.MONGOLAB_URI, function(err, db){
 		if (err) res.jsonp(500, { error: "db error:" + err });
 		findWindData(db, "wind_u", forecastTime, function(data) {
