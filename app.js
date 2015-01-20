@@ -19,17 +19,24 @@ app.get('/', function(req, res) {
 
 
 app.get('/wind', function(req, res) {
-	var time = req.query.time;
+	var forecastTime = req.query.forecastTime;
 	var bounds_query = req.query.bounds; // [ p1.lat, p1.lng, p2.lat, p2.lng ]
 	var zoom = req.query.zoom;
 	
+	forecastTime = ( forecastTime == null ) ? 0 : parseInt(forecastTime);
+	if ( forecastTime < 0 || forecastTime > 15 ){
+		res.jsonp(500, { error: "No Data" });
+	}
+
 	var bounds = bounds_query.split(",").map(function(d){
 		return parseFloat(d);
 	});
 
+	console.log(forecastTime);
+
 	MongoClient.connect(process.env.MONGOLAB_URI, function(err, db){
 		if (err) res.jsonp(500, { error: "db error:" + err });
-		findWindData(db, "wind_u", 0, function(data) {
+		findWindData(db, "wind_u", forecastTime, function(data) {
 			var wind_u = extractBounds(data, bounds);
 			findWindData(db, "wind_v", 0, function(data) {
 				var wind_v = extractBounds(data, bounds);
@@ -71,8 +78,6 @@ function extractBounds(data, bounds){
 	var xy1 = latlng2xy(bounds[0], bounds[1]);
 	var xy2 = latlng2xy(bounds[2], bounds[3]);
 	xy1.x--; xy1.y--;
-
-	console.log(xy1, xy2);
 
 	// 範囲抽出
 	var e = extractData(wind_data, xy1, xy2, nx);
