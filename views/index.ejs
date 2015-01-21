@@ -62,7 +62,8 @@
 						dataType: "jsonp",
 						data: {
 							bounds: str_bounds,
-							forecastTime: 0	
+							forecastTime: 0,
+							zoom: map.getZoom()
 						},
 						success: function(data, status) {
 							var end = Date.now();

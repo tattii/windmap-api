@@ -41,7 +41,7 @@ app.get('/wind', function(req, res) {
 		res.jsonp(500, { error: "No Data" });
 	}
 
-	zoom = ( zoom == null ) ? 9 : parseInt(forecastTime);
+	zoom = ( zoom == null ) ? 9 : parseInt(zoom);
 
 	MongoClient.connect(process.env.MONGOLAB_URI, function(err, db){
 		if (err) res.jsonp(500, { error: "db error:" + err });
