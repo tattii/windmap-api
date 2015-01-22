@@ -114,12 +114,14 @@ function extractBounds(data, bounds, zoom){
 	}else{
 		if (zoom<5) zoom = 5;
 		var thinout = Math.pow(2, 9-zoom);
-		var	t_nx = Math.floor( (xy2.x-xy1.x) / thinout );
-		var	t_ny = Math.floor( (xy2.y-xy1.y) / thinout );
+		var	t_nx = Math.ceil( (xy2.x-xy1.x) / thinout );
+		var	t_ny = Math.ceil( (xy2.y-xy1.y) / thinout );
 		var xy3 = {
 			x: xy1.x + thinout * t_nx,
 			y: xy1.y + thinout * t_ny
 		};
+		if ( xy3.x >= nx ) xy3.x = xy1.x + thinout * (t_nx-1);
+		if ( xy3.y >= ny ) xy3.y = xy1.y + thinout * (t_ny-1);
 
 		var e = extractDataThinOut(wind_data, xy1, xy3, nx, thinout);
 
