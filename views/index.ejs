@@ -13,6 +13,9 @@
 			#info { position:absolute; left:10px; top:0; z-index:20; }
 			#info h1 { color:#fff; font-size:24px; }
 			#wind-dialog { position:absolute; bottom:10px; right:10px; z-index:20; color:#fff; }
+
+			#stream-layer-stream { position:absolute; top:0; z-index:2; }
+			#stream-layer-mask { position:absolute; top:0; z-index:3;}
 		</style>
 	</head>
 	<body>
@@ -87,16 +90,30 @@
 						this._width  = map.getSize().x;	
 						this._height = map.getSize().y;	
 
-						this._el = L.DomUtil.create('canvas', 'stream-layer leaflet-zoom-hide');
+						this._el = L.DomUtil.create('div', 'stream-layer leaflet-zoom-hide');
 						map.getPanes().overlayPane.appendChild(this._el);
 
-						var cv = document.getElementsByClassName("stream-layer")[0];
-						this._ctx = cv.getContext('2d');
-						cv.width = this._width;
-						cv.height = this._height;
-						this._ctx.globalAlpha = 0.9;
+						var layer = document.getElementsByClassName("stream-layer")[0];
 
-						this.stream = new Stream({ x:[0, this._width], y:[0, this._height] });
+						var maskLayer = document.createElement("canvas");
+						maskLayer.id = "stream-layer-mask";
+						layer.appendChild(maskLayer);
+						var maskCv = document.getElementById("stream-layer-mask");
+						this._maskCtx = maskCv.getContext('2d');
+						maskCv.width = this._width;
+						maskCv.height = this._height;
+
+						var streamLayer = document.createElement("canvas");
+						streamLayer.id = "stream-layer-stream";
+						layer.appendChild(streamLayer);
+						var streamCv = document.getElementById("stream-layer-stream");
+						this._streamCtx = streamCv.getContext('2d');
+						streamCv.width = this._width;
+						streamCv.height = this._height;
+						this._streamCtx.globalAlpha = 0.9;
+
+
+						this.stream = new Stream({ x:[0, this._width], y:[0, this._height] }, this._streamCtx, this._maskCtx);
 
 						map.on('viewreset', this._reset, this);
 						map.on('moveend', this._reset, this);
@@ -122,7 +139,8 @@
 								{ x:t._width, y:t._height, lat:b.getSouth(), lng:b.getEast() }
 							);
 
-							t._ctx.clearRect(0, 0, t._width, t._height);
+							t._streamCtx.clearRect(0, 0, t._width, t._height);
+						//	t._maskCtx.clearRect(0, 0, t._width, t._height);
 
 							// stream
 							var scale = [
@@ -134,7 +152,7 @@
 							];
 							wind_field = new GribWind(wind_data);
 							t.stream.setField(wind_field, proj, scale[t._map.getZoom()-5]);
-							t.stream.animate(t._ctx);
+							t.stream.animate();
 
 							// move canvas position
 							var pos = t._map.latLngToLayerPoint(b.getNorthWest());
