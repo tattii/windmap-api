@@ -44,7 +44,7 @@ function Stream(bound, streamCtx, maskCtx) {
 				for (var x = bound.x[0]; x < bound.x[1]; x+=2){
 					var latlng = projection.unproject(x, y);
 					var v = field.getVector(latlng);
-					var wind = [ v[0]*scale, v[1]*-1*scale, Math.sqrt(v[0]*v[0] + v[1]*v[1]) ];
+					var wind = (v[0] == null) ? NULL_VECTOR : [ v[0]*scale, v[1]*-1*scale, Math.sqrt(v[0]*v[0] + v[1]*v[1]) ];
 					row[x] = row[x+1] = wind;
 
 					var color = (v[0] == null) ? TRANSPARENT_BLACK : extendedSinebowColor(Math.min(wind[2], 100) / 100, MASK_ALPHA);
