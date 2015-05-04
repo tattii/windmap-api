@@ -67,16 +67,19 @@ app.get('/wind', function(req, res) {
 		var col_u = db.collection("surface_wind_u");
 		var col_v = db.collection("surface_wind_v");
 
+		// grid point
+		var xy1 = {
+			x: range(Math.floor((bounds[1]-lo1) / dx), 0, nx-1),
+			y: range(Math.floor((la1-bounds[0]) / dy), 0, ny-1)
+		};
+		var xy2 = {
+			x: range(Math.ceil((bounds[3]-lo1) / dx), 0, nx-1),
+			y: range(Math.ceil((la1-bounds[2]) / dy), 0, ny-1)
+		};
+
+
 		// get Grid Point Value in bounds
 		if (zoom >= 9){
-			var xy1 = {
-				x: range(Math.floor((bounds[1]-lo1) / dx), 0, nx-1),
-				y: range(Math.floor((la1-bounds[0]) / dy), 0, ny-1)
-			};
-			var xy2 = {
-				x: range(Math.ceil((bounds[3]-lo1) / dx), 0, nx-1),
-				y: range(Math.ceil((la1-bounds[2]) / dy), 0, ny-1)
-			};
 
 			extractData(col_u, 0, xy1, xy2, function(wind_u){
 				extractData(col_v, 0, xy1, xy2, function(wind_v){
@@ -96,7 +99,40 @@ app.get('/wind', function(req, res) {
 					});
 				});
 			});
+			
+		// get Grid Point Value in bounds (thinout)	
+		}else{
+			if (zoom<5) zoom = 5;
+			var thinout = Math.pow(2, 9-zoom);
+			var t_nx = Math.ceil( (xy2.x-xy1.x) / thinout );
+			var t_ny = Math.ceil( (xy2.y-xy1.y) / thinout );
 				
+			if ( xy1.x + thinout * t_nx >= nx ) t_nx--;
+			if ( xy1.y + thinout * t_ny >= ny ) t_ny--;
+			var xy3 = {
+				x: xy1.x + thinout * t_nx,
+				y: xy1.y + thinout * t_ny
+			};
+
+
+			extractDataThinout(col_u, 0, xy1, xy3, thinout, function(wind_u){
+				extractDataThinout(col_v, 0, xy1, xy3, thinout, function(wind_v){
+					res.jsonp({
+						header: {
+							la1: la1 - dy * xy1.y,
+							lo1: lo1 + dx * xy1.x,
+							la2: la1 - dy * xy3.y,
+							lo2: lo1 + dx * xy3.x,
+							dx: dx * thinout,
+							dy: dy * thinout,
+							nx: t_nx + 1,
+							ny: t_ny + 1
+						},
+						wind_u: wind_u,
+						wind_v: wind_v
+					});
+				});
+			});
 		}
 	});
 });
@@ -120,6 +156,22 @@ function extractData(col, forecastTime, p1, p2, callback) {
 }
 
 
+function extractDataThinout(col, forecastTime, p1, p2, thinout, callback) {
+	var data = [];
+	var remainder_y = p1.y % thinout;
+
+	col.find({
+		t: forecastTime,
+		r: { $gte: p1.y, $lte: p2.y, $mod: [thinout, remainder_y] }
+	}).toArray(function(err, doc) {
+		_.each(doc, function(row){
+			for (var x = p1.x-1; x < p2.x; x += thinout ){
+				data.push(row.d[x]);
+			}
+		});
+		callback(data);
+	});
+}
 
 // utility function -----------------------------------------------------------
 function range(t, min, max) {
