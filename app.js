@@ -173,6 +173,17 @@ function extractDataThinout(col, forecastTime, p1, p2, thinout, callback) {
 	});
 }
 
+
+
+
+app.get('/test', function(req, res) {
+	// get data form MongoDB
+	MongoClient.connect(process.env.MONGO_URI, function(err, db){
+		if (err) res.jsonp(500, { error: "db error:" + err });
+		res.jsonp({m: "test"});
+	});
+});
+
 // utility function -----------------------------------------------------------
 function range(t, min, max) {
 	if ( t < min ){
