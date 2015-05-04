@@ -60,7 +60,7 @@
 					var start = Date.now();
 					if (req) req.abort();
 					req = $.ajax({
-						url: "http://windmap-surf.herokuapp.com/wind",
+						url: "/wind",
 						type: "GET",
 						dataType: "jsonp",
 						data: {

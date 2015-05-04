@@ -1,8 +1,23 @@
+/**
+ * Wind Data API 
+ *  Author Yuta Tachibana  
+ *
+ *  @return: jsonp
+ *  @params:
+ *      bounds: p1.lat, p1.lng, p2.lat, p2.lng  (required)  p1:NW p2:SE corner
+ *      forecastTime: 0 - 39 (default:0)
+ *      scale: 1 - 8 (default:1)  thinout 2**scale 
+ */
+
+
 var express = require('express');
+var _ = require('underscore');
 var MongoClient = require('mongodb').MongoClient;
 
 var app = express();
 app.set('port', (process.env.PORT || 5000));
+
+// for debug
 app.use(express.static(__dirname + '/public'));
 app.set('view engine', 'ejs');
 
@@ -12,23 +27,16 @@ app.use(function(err, req, res, next) {
 });
 
 
-
+// root -----------------------------------------------------------------------
 app.get('/', function(req, res) {
 	res.render("index");
 });
 
 
-/**
- *   wind data API
- *   	return: jsonp
- *   	params:
- *   		bounds: p1.lat, p1.lng, p2.lat, p2.lng  (required)
- *   		forecastTime: 0 - 39
- *   		zoom: 5 - 13
- */
+// API ------------------------------------------------------------------------
 app.get('/wind', function(req, res) {
-	// check query
-	var zoom = req.query.zoom;
+	// check param
+	var scale        = req.query.scale;
 	var forecastTime = req.query.forecastTime;
 	var bounds_query = req.query.bounds; 
 	
@@ -41,150 +49,101 @@ app.get('/wind', function(req, res) {
 		res.jsonp(500, { error: "No Data" });
 	}
 
-	zoom = ( zoom == null ) ? 9 : parseInt(zoom);
+	scale = ( scale == null ) ? 1 : parseInt(scale);
 
-	MongoClient.connect(process.env.MONGOLAB_URI, function(err, db){
+
+	MongoClient.connect(process.env.MONGO_URI, function(err, db){
 		if (err) res.jsonp(500, { error: "db error:" + err });
-		findWindData(db, "wind_u", forecastTime, function(data) {
-			var wind_u = extractBounds(data, bounds, zoom);
-			findWindData(db, "wind_v", forecastTime, function(data) {
-				var wind_v = extractBounds(data, bounds, zoom);
-				res.jsonp({
-					header: wind_u.header,
-					wind_u: wind_u.data,
-					wind_v: wind_v.data
+		var col_u = db.collection("surface_wind_u");
+		var col_v = db.collection("surface_wind_v");
+
+		// get gird header
+		getHeader(col_u, function(header) {
+			var lo1 = header.lo1, la1 = header.la1;
+			var dx = header.dx, dy = header.dy;
+			var nx = header.nx, ny = header.ny; 
+
+			// grid position
+			var xy1 = {
+				x: range(Math.floor((bounds[1]-lo1) / dx), 0, nx-1),
+				y: range(Math.floor((la1-bounds[0]) / dy), 0, ny-1)
+			};
+			var xy2 = {
+				x: range(Math.ceil((bounds[3]-lo1) / dx), 0, nx-1),
+				y: range(Math.ceil((la1-bounds[2]) / dy), 0, ny-1)
+			};
+
+			extractData(col_u, 0, xy1, xy2, function(wind_u){
+				extractData(col_v, 0, xy1, xy2, function(wind_v){
+					res.jsonp({
+						header: {
+							la1: la1 - dy * xy1.y,
+							lo1: lo1 + dx * xy1.x,
+							la2: la1 - dy * xy2.y,
+							lo2: lo1 + dx * xy2.x,
+							dx: dx,
+							dy: dy,
+							nx: xy2.x - xy1.x + 1,
+							ny: xy2.y - xy1.y + 1
+						},
+						wind_u: wind_u,
+						wind_v: wind_v
+					});
 				});
 			});
-		});
+				
+		});	
 	});
 });
 
 
-// mongodb
-function findWindData(db, col, forecastTime, callback) {
-	var collection = db.collection(col);
-	collection.findOne(
-		{ 'header.forecastTime': forecastTime },
-		function(err, item){
+// TODO: 数値保存
+function getHeader(col, callback) {
+	col.findOne(
+		{ t:-1 },
+		function(err, item) {
 			if (err) console.log(err);
 			callback(item);
 	});
+
 }
 
 
-// grib data
-function extractBounds(data, bounds, zoom){
-	if (data == null) throw new Error("db error: not found");
-
-	var header = data.header
-	var wind_data = data.data;
-
-	var lo1 = header.lo1, la1 = header.la1;
-	var lo2 = header.lo2, la2 = header.la2;
-	var dx = header.dx, dy = header.dy;
-	var nx = header.nx, ny = header.ny; 
-
-	var xy1 = {
-		x: range(Math.floor((bounds[1]-lo1) / dx), 0, nx-1),
-		y: range(Math.floor((la1-bounds[0]) / dy), 0, ny-1)
-	};
-	var xy2 = {
-		x: range(Math.ceil((bounds[3]-lo1) / dx), 0, nx-1),
-		y: range(Math.ceil((la1-bounds[2]) / dy), 0, ny-1)
-	};
-
-	// 範囲抽出
-	if ( zoom >= 9 ){
-		var e = extractData(wind_data, xy1, xy2, nx);
-		return {
-			header: {
-				la1: la1 - dy * xy1.y,
-				lo1: lo1 + dx * xy1.x,
-				la2: la1 - dy * xy2.y,
-				lo2: lo1 + dx * xy2.x,
-				dx: dx,
-				dy: dy,
-				nx: xy2.x - xy1.x + 1,
-				ny: xy2.y - xy1.y + 1
-			},
-			data: e
-		};
-
-	// 範囲抽出（間引き）
-	}else{
-		if (zoom<5) zoom = 5;
-		var thinout = Math.pow(2, 9-zoom);
-		var	t_nx = Math.ceil( (xy2.x-xy1.x) / thinout );
-		var	t_ny = Math.ceil( (xy2.y-xy1.y) / thinout );
-			
-		if ( xy1.x + thinout * t_nx >= nx ) t_nx--;
-		if ( xy1.y + thinout * t_ny >= ny ) t_ny--;
-		var xy3 = {
-			x: xy1.x + thinout * t_nx,
-			y: xy1.y + thinout * t_ny
-		};
-
-		var e = extractDataThinOut(wind_data, xy1, xy3, nx, thinout);
-
-		return {
-			header: {
-				la1: la1 - dy * xy1.y,
-				lo1: lo1 + dx * xy1.x,
-				la2: la1 - dy * xy3.y,
-				lo2: lo1 + dx * xy3.x,
-				dx: dx * thinout,
-				dy: dy * thinout,
-				nx: t_nx + 1,
-				ny: t_ny + 1
-			},
-			data: e
-		};
-	}
 
 
-
-	function range(t, min, max) {
-		if ( t < min ){
-			return min;
-		}else if ( t > max ){
-			return max;
-		}else{
-			return t;
-		}
-	}
-}
-
-function extractData(data, p1, p2, nx) {
-	var extract = [];
+function extractData(col, forecastTime, p1, p2, callback) {
+	var data = [];
 	var push = Array.prototype.push;
 
-	function N(x, y) { return nx * y + x; }
-
-	for (var y = p1.y; y <= p2.y; y++) {
-		push.apply(extract,  data.slice(N(p1.x, y), N(p2.x, y)+1) );
-	}
-
-	return extract;
-}
-
-
-function extractDataThinOut(data, p1, p2, nx, d) {
-	var extract = [];
-
-	function N(x, y) { return nx * y + x; }
-
-	for (var y = p1.y; y <= p2.y; y += d ){
-		for (var x = p1.x; x <= p2.x; x += d ){
-			extract.push(data[N(x,y)]);
-		}
-	}
-
-	return extract;
+	col.find({
+		t: forecastTime,
+		r: { $gte: p1.y, $lte: p2.y }
+	}).toArray(function(err, doc) {
+		_.each(doc, function(row){
+			push.apply(data, row.d.slice(p1.x-1, p2.x));
+		});
+		callback(data);
+	});
 }
 
 
 
+// utility function -----------------------------------------------------------
+function range(t, min, max) {
+	if ( t < min ){
+		return min;
+	}else if ( t > max ){
+		return max;
+	}else{
+		return t;
+	}
+}
 
+
+
+
+// start app ------------------------------------------------------------------
 app.listen(app.get('port'), function() {
   console.log("Node app is running at localhost:" + app.get('port'));
 });
+
