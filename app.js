@@ -6,7 +6,7 @@
  *  @params:
  *      bounds: p1.lat, p1.lng, p2.lat, p2.lng  (required)  p1:NW p2:SE corner
  *      forecastTime: 0 - 39 (default:0)
- *      scale: 1 - 8 (default:1)  thinout 2**scale 
+ *      zoom: 5 - 13 (default:9)
  */
 
 
@@ -27,6 +27,15 @@ app.use(function(err, req, res, next) {
 });
 
 
+// MSM header Constants -------------------------------------------------------
+var nx = 481;
+var ny = 505;
+var lo1 = 120;
+var la1 = 47.599998474121094;
+var dx = 0.0625;
+var dy = 0.05000000074505806;
+
+
 // root -----------------------------------------------------------------------
 app.get('/', function(req, res) {
 	res.render("index");
@@ -36,9 +45,9 @@ app.get('/', function(req, res) {
 // API ------------------------------------------------------------------------
 app.get('/wind', function(req, res) {
 	// check param
-	var scale        = req.query.scale;
-	var forecastTime = req.query.forecastTime;
 	var bounds_query = req.query.bounds; 
+	var forecastTime = req.query.forecastTime;
+	var zoom         = req.query.zoom;
 	
 	var bounds = bounds_query.split(",").map(function(d){
 		return parseFloat(d);
@@ -49,21 +58,17 @@ app.get('/wind', function(req, res) {
 		res.jsonp(500, { error: "No Data" });
 	}
 
-	scale = ( scale == null ) ? 1 : parseInt(scale);
+	zoom = ( zoom == null ) ? 9 : parseInt(zoom);
 
 
+	// get data form MongoDB
 	MongoClient.connect(process.env.MONGO_URI, function(err, db){
 		if (err) res.jsonp(500, { error: "db error:" + err });
 		var col_u = db.collection("surface_wind_u");
 		var col_v = db.collection("surface_wind_v");
 
-		// get gird header
-		getHeader(col_u, function(header) {
-			var lo1 = header.lo1, la1 = header.la1;
-			var dx = header.dx, dy = header.dy;
-			var nx = header.nx, ny = header.ny; 
-
-			// grid position
+		// get Grid Point Value in bounds
+		if (zoom >= 9){
 			var xy1 = {
 				x: range(Math.floor((bounds[1]-lo1) / dx), 0, nx-1),
 				y: range(Math.floor((la1-bounds[0]) / dy), 0, ny-1)
@@ -92,21 +97,9 @@ app.get('/wind', function(req, res) {
 				});
 			});
 				
-		});	
+		}
 	});
 });
-
-
-// TODO: 数値保存
-function getHeader(col, callback) {
-	col.findOne(
-		{ t:-1 },
-		function(err, item) {
-			if (err) console.log(err);
-			callback(item);
-	});
-
-}
 
 
 
