@@ -12,7 +12,9 @@
 
 var express = require('express');
 var _ = require('underscore');
+
 var MongoClient = require('mongodb').MongoClient;
+var db;
 
 var app = express();
 app.set('port', (process.env.PORT || 5000));
@@ -25,6 +27,18 @@ app.use(function(err, req, res, next) {
 	console.log(err);
 	res.jsonp(500, {error: err});
 });
+
+// start app ------------------------------------------------------------------
+
+MongoClient.connect(process.env.MONGO_URI, function(err, database){
+	if (err) throw err;
+		db = database;
+
+	app.listen(app.get('port'), function() {
+		console.log("Node app is running at localhost:" + app.get('port'));
+	});
+});
+
 
 
 // MSM header Constants -------------------------------------------------------
@@ -62,79 +76,75 @@ app.get('/wind', function(req, res) {
 
 
 	// get data form MongoDB
-	MongoClient.connect(process.env.MONGO_URI, function(err, db){
-		if (err) res.jsonp(500, { error: "db error:" + err });
-		var col_u = db.collection("surface_wind_u");
-		var col_v = db.collection("surface_wind_v");
+	var col_u = db.collection("surface_wind_u");
+	var col_v = db.collection("surface_wind_v");
 
-		// grid point
-		var xy1 = {
-			x: range(Math.floor((bounds[1]-lo1) / dx), 0, nx-1),
-			y: range(Math.floor((la1-bounds[0]) / dy), 0, ny-1)
-		};
-		var xy2 = {
-			x: range(Math.ceil((bounds[3]-lo1) / dx), 0, nx-1),
-			y: range(Math.ceil((la1-bounds[2]) / dy), 0, ny-1)
-		};
+	// grid point
+	var xy1 = {
+		x: range(Math.floor((bounds[1]-lo1) / dx), 0, nx-1),
+		y: range(Math.floor((la1-bounds[0]) / dy), 0, ny-1)
+	};
+	var xy2 = {
+		x: range(Math.ceil((bounds[3]-lo1) / dx), 0, nx-1),
+		y: range(Math.ceil((la1-bounds[2]) / dy), 0, ny-1)
+	};
 
 
-		// get Grid Point Value in bounds
-		if (zoom >= 9){
-
-			extractData(col_u, 0, xy1, xy2, function(wind_u){
-				extractData(col_v, 0, xy1, xy2, function(wind_v){
-					res.jsonp({
-						header: {
-							la1: la1 - dy * xy1.y,
-							lo1: lo1 + dx * xy1.x,
-							la2: la1 - dy * xy2.y,
-							lo2: lo1 + dx * xy2.x,
-							dx: dx,
-							dy: dy,
-							nx: xy2.x - xy1.x + 1,
-							ny: xy2.y - xy1.y + 1
-						},
-						wind_u: wind_u,
-						wind_v: wind_v
-					});
+	// get Grid Point Value in bounds
+	if (zoom >= 9){
+		extractData(col_u, 0, xy1, xy2, function(wind_u){
+			extractData(col_v, 0, xy1, xy2, function(wind_v){
+				res.jsonp({
+					header: {
+						la1: la1 - dy * xy1.y,
+						lo1: lo1 + dx * xy1.x,
+						la2: la1 - dy * xy2.y,
+						lo2: lo1 + dx * xy2.x,
+						dx: dx,
+						dy: dy,
+						nx: xy2.x - xy1.x + 1,
+						ny: xy2.y - xy1.y + 1
+					},
+					wind_u: wind_u,
+					wind_v: wind_v
 				});
 			});
+		});
+		
+	// get Grid Point Value in bounds (thinout)	
+	}else{
+		if (zoom<5) zoom = 5;
+		var thinout = Math.pow(2, 9-zoom);
+		var t_nx = Math.ceil( (xy2.x-xy1.x) / thinout );
+		var t_ny = Math.ceil( (xy2.y-xy1.y) / thinout );
 			
-		// get Grid Point Value in bounds (thinout)	
-		}else{
-			if (zoom<5) zoom = 5;
-			var thinout = Math.pow(2, 9-zoom);
-			var t_nx = Math.ceil( (xy2.x-xy1.x) / thinout );
-			var t_ny = Math.ceil( (xy2.y-xy1.y) / thinout );
-				
-			if ( xy1.x + thinout * t_nx >= nx ) t_nx--;
-			if ( xy1.y + thinout * t_ny >= ny ) t_ny--;
-			var xy3 = {
-				x: xy1.x + thinout * t_nx,
-				y: xy1.y + thinout * t_ny
-			};
+		if ( xy1.x + thinout * t_nx >= nx ) t_nx--;
+		if ( xy1.y + thinout * t_ny >= ny ) t_ny--;
+		var xy3 = {
+			x: xy1.x + thinout * t_nx,
+			y: xy1.y + thinout * t_ny
+		};
 
 
-			extractDataThinout(col_u, 0, xy1, xy3, thinout, function(wind_u){
-				extractDataThinout(col_v, 0, xy1, xy3, thinout, function(wind_v){
-					res.jsonp({
-						header: {
-							la1: la1 - dy * xy1.y,
-							lo1: lo1 + dx * xy1.x,
-							la2: la1 - dy * xy3.y,
-							lo2: lo1 + dx * xy3.x,
-							dx: dx * thinout,
-							dy: dy * thinout,
-							nx: t_nx + 1,
-							ny: t_ny + 1
-						},
-						wind_u: wind_u,
-						wind_v: wind_v
-					});
+		extractDataThinout(col_u, 0, xy1, xy3, thinout, function(wind_u){
+			extractDataThinout(col_v, 0, xy1, xy3, thinout, function(wind_v){
+				res.jsonp({
+					header: {
+						la1: la1 - dy * xy1.y,
+						lo1: lo1 + dx * xy1.x,
+						la2: la1 - dy * xy3.y,
+						lo2: lo1 + dx * xy3.x,
+						dx: dx * thinout,
+						dy: dy * thinout,
+						nx: t_nx + 1,
+						ny: t_ny + 1
+					},
+					wind_u: wind_u,
+					wind_v: wind_v
 				});
 			});
-		}
-	});
+		});
+	}
 });
 
 
@@ -198,8 +208,4 @@ function range(t, min, max) {
 
 
 
-// start app ------------------------------------------------------------------
-app.listen(app.get('port'), function() {
-  console.log("Node app is running at localhost:" + app.get('port'));
-});
 
