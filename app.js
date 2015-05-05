@@ -53,6 +53,7 @@ var lo1 = 120;
 var la1 = 47.599998474121094;
 var dx = 0.0625;
 var dy = 0.05000000074505806;
+var refTime;
 
 
 // root -----------------------------------------------------------------------
@@ -83,6 +84,7 @@ app.get('/wind', function(req, res) {
 	// get data form MongoDB
 	var col_u = db_u.collection("surface_wind_u");
 	var col_v = db_v.collection("surface_wind_v");
+	getHeader(col_u);
 
 	// grid point
 	var xy1 = {
@@ -108,7 +110,9 @@ app.get('/wind', function(req, res) {
 						dx: dx,
 						dy: dy,
 						nx: xy2.x - xy1.x + 1,
-						ny: xy2.y - xy1.y + 1
+						ny: xy2.y - xy1.y + 1,
+						refTime: refTime,
+						forecastTime: 0
 					},
 					wind_u: wind_u,
 					wind_v: wind_v
@@ -142,7 +146,9 @@ app.get('/wind', function(req, res) {
 						dx: dx * thinout,
 						dy: dy * thinout,
 						nx: t_nx + 1,
-						ny: t_ny + 1
+						ny: t_ny + 1,
+						refTime: refTime,
+						forecastTime: 0
 					},
 					wind_u: wind_u,
 					wind_v: wind_v
@@ -152,6 +158,16 @@ app.get('/wind', function(req, res) {
 	}
 });
 
+
+function getHeader(col) {
+	col.findOne(
+		{ t:-1 },
+		function(err, item) {
+			if (err) console.log(err);
+			refTime = item.refTime;
+	});
+
+}
 
 
 
