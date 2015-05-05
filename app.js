@@ -14,7 +14,7 @@ var express = require('express');
 var _ = require('underscore');
 
 var MongoClient = require('mongodb').MongoClient;
-var db;
+var db_u, db_v;
 
 var app = express();
 app.set('port', (process.env.PORT || 5000));
@@ -30,12 +30,17 @@ app.use(function(err, req, res, next) {
 
 // start app ------------------------------------------------------------------
 
-MongoClient.connect(process.env.MONGO_URI, function(err, database){
+MongoClient.connect(process.env.MONGO_DEV_U, function(err, database_u){
 	if (err) throw err;
-		db = database;
+	MongoClient.connect(process.env.MONGO_DEV_V, function(err, database_v){
+		if (err) throw err;
 
-	app.listen(app.get('port'), function() {
-		console.log("Node app is running at localhost:" + app.get('port'));
+		db_u = database_u;
+		db_v = database_v;
+
+		app.listen(app.get('port'), function() {
+			console.log("Node app is running at localhost:" + app.get('port'));
+		});
 	});
 });
 
@@ -76,8 +81,8 @@ app.get('/wind', function(req, res) {
 
 
 	// get data form MongoDB
-	var col_u = db.collection("surface_wind_u");
-	var col_v = db.collection("surface_wind_v");
+	var col_u = db_u.collection("surface_wind_u");
+	var col_v = db_v.collection("surface_wind_v");
 
 	// grid point
 	var xy1 = {
